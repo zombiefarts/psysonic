@@ -233,8 +233,8 @@ def ssdp_search(timeout: float, bind_ip: str | None, unicast_ip: str | None = No
                 continue
             h = parse_ssdp_response(data)
             loc = h.get("location")
-            vlog("SSDP reply from", addr, {k: h.get(k) for k in ("st", "usn", "server", "location")})
             if loc and loc not in seen:
+                vlog("SSDP new device", addr[0], {k: h.get(k) for k in ("st", "server", "location")})
                 seen[loc] = addr[0]
     for _, sock in socks:
         sock.close()
@@ -378,7 +378,14 @@ def rc(dev, action, extra=()):
     return soap_call(s["control"], s["type"], action, [("InstanceID", "0"), *extra])
 
 
+def require_http_url(url: str) -> None:
+    if not url.lower().startswith(("http://", "https://")):
+        raise SystemExit(f"ERROR: {url!r} is not an http(s) URL. Replace the placeholder with a real, "
+                         "LAN-reachable stream URL (in quotes).")
+
+
 def cmd_play(args):
+    require_http_url(args.url)
     dev = pick_device(args)
     print(f"Renderer: {dev['friendlyName']}")
     if not args.skip_check:
@@ -438,6 +445,7 @@ def cmd_set_volume(args):
 
 def cmd_next(args):
     """Probe gapless support: SetNextAVTransportURI."""
+    require_http_url(args.url)
     dev = pick_device(args)
     didl = build_didl(args.title, args.url, args.mime)
     av(dev, "SetNextAVTransportURI", [("NextURI", args.url), ("NextURIMetaData", didl)])
