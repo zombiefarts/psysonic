@@ -10,5 +10,10 @@
         <key>NSAllowsArbitraryLoads</key>
         <true/>
     </dict>
+    <!-- macOS 15+ blocks LAN connections from native code until the user
+         approves Local Network access; the prompt needs a usage string. Covers
+         LAN Navidrome/Subsonic servers and DLNA (SSDP) renderer discovery. -->
+    <key>NSLocalNetworkUsageDescription</key>
+    <string>Psysonic connects to music servers and DLNA speakers on your local network.</string>
 </dict>
 </plist>
