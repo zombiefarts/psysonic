@@ -1,5 +1,5 @@
 import { playbackReportStart, playbackReportStopped } from '@/features/playback/store/playbackReportSession';
-import { invoke } from '@tauri-apps/api/core';
+import { invokeAudioPlayUnlessCasting } from '@/store/castGate';
 import { audioSeek } from '@/lib/api/audio';
 import { getMusicNetworkRuntimeOrNull } from '@/music-network';
 import { isPrivateModeActive } from '@/features/privateMode';
@@ -618,7 +618,7 @@ export function runPlayTrack(
         clearAutodjTransitionUi();
       }
 
-      invoke('audio_play', {
+      invokeAudioPlayUnlessCasting({
         url,
         volume: state.volume,
         durationHint: trackForPlay.duration,

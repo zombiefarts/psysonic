@@ -313,6 +313,23 @@ Psysonic is licensed under the **GNU GPL v3.0**.
 
 ---
 
+## DLNA casting (experimental, fork)
+
+This fork adds a **Cast to device** button to the player bar and the fullscreen players. It finds UPnP/DLNA
+MediaRenderers on the local network (tested against an Eversolo DMP) and plays the current queue on them.
+Local playback is unchanged when you are not casting.
+
+- The renderer fetches the Subsonic stream URL itself, so it must be able to reach your server over the LAN.
+  Authentication is carried in the URL (`u`/`t`/`s`); a server that needs custom HTTP headers will not work.
+- While casting, AutoDJ, crossfade, loudness normalization and the equalizer do not apply. Scrobbling and play
+  statistics are driven by local engine events, so they are probably not recorded for cast tracks (not verified).
+- Queue advance is driven by the app: when the renderer reports the track finished, the app moves to the next
+  one. Gapless hand-off via `SetNextAVTransportURI` is available in the backend (`cast_set_next`) but not wired
+  into the UI yet.
+- Radio stations are not cast.
+
+See `SUMMARY.md` for details, what has and has not been verified, and the open questions.
+
 ## Forks and Attribution
 
 > **This repository is a fork based on [Psysonic](https://github.com/Psysonic/psysonic).** The `feature/dlna-cast` branch experiments with DLNA/UPnP casting. All original work is by the Psysonic authors and remains under the GPLv3; see [LICENSE](LICENSE) and [NOTICE.md](NOTICE.md).

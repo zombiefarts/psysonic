@@ -79,7 +79,7 @@ describe('FullscreenPlayerPrism visualizer integration', () => {
     await user.click(screen.getByRole('button', { name: 'Fill the window' }));
     await waitFor(() => expect(screen.getByRole('button', { name: 'Exit full window' })).toHaveFocus());
 
-    for (const name of ['Previous Track', 'Play', 'Next Track', 'Repeat']) {
+    for (const name of ['Previous Track', 'Play', 'Next Track', 'Repeat', 'Cast to device']) {
       await user.tab();
       expect(screen.getByRole('button', { name })).toHaveFocus();
     }
@@ -97,7 +97,7 @@ describe('FullscreenPlayerPrism visualizer integration', () => {
 
     await user.click(screen.getByRole('button', { name: 'Fill the window' }));
     await waitFor(() => expect(screen.getByRole('button', { name: 'Exit full window' })).toHaveFocus());
-    for (const name of ['Previous Track', 'Play', 'Next Track', 'Repeat', 'Force scrobble']) {
+    for (const name of ['Previous Track', 'Play', 'Next Track', 'Repeat', 'Force scrobble', 'Cast to device']) {
       await user.tab();
       expect(screen.getByRole('button', { name })).toHaveFocus();
     }

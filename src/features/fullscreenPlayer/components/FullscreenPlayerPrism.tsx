@@ -6,6 +6,7 @@ import {
 } from 'lucide-react';
 import { usePlayerStore, type PlaybackProgressSnapshot, usePlaybackLibraryNavigate, TrackArtistLinks, ScrobbleActionButton, skipToNextAlbum, skipToPreviousAlbum } from '@/features/playback';
 import { FsVolume } from './FsVolume';
+import { CastButton } from '@/features/cast';
 import { useAlbumCoverRef } from '@/cover/useLibraryCoverRef';
 import { usePlaybackCoverArt } from '@/cover/usePlaybackCoverArt';
 import { useFsArtistBackdrop } from '@/features/fullscreenPlayer/hooks/useFsArtistBackdrop';
@@ -161,6 +162,7 @@ export default function FullscreenPlayerPrism({ onClose }: { onClose: () => void
             activeClassName="fsp2-btn-active"
             iconSize={18}
           />
+          <CastButton className="fsp2-btn" iconSize={18} />
           <FsVolume
             className="fsp2-volume"
             buttonClassName="fsp2-btn"

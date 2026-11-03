@@ -21,6 +21,7 @@ import { FsPlayBtn } from '@/features/fullscreenPlayer/components/FsPlayBtn';
 import { FsClock } from '@/features/fullscreenPlayer/components/FsClock';
 import { FsTimeReadout } from '@/features/fullscreenPlayer/components/FsTimeReadout';
 import { FsVolume } from '@/features/fullscreenPlayer/components/FsVolume';
+import { CastButton } from '@/features/cast';
 import { ownedOverrideValue } from '@/lib/util/ownedEntityKey';
 import { VisualizerPanel } from '@/features/visualizer';
 import { prepareTransientUiOpen } from '@/lib/dom/transientUi';
@@ -285,6 +286,7 @@ export default function FullscreenPlayerStatic({ onClose }: Props) {
           <FsTimeReadout duration={duration} />
 
           <div className="fsp-actions">
+            <CastButton className="fsp-btn fsp-btn-sm" iconSize={20} />
             <FsVolume
               className="fsp-volume"
               buttonClassName="fsp-btn fsp-btn-sm"

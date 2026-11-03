@@ -1,0 +1,138 @@
+.cast-btn-active {
+  color: var(--accent);
+}
+
+.cast-menu {
+  position: fixed;
+  z-index: 10000;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 8px;
+  max-height: 60vh;
+  overflow-y: auto;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  background: var(--bg-elevated);
+  color: var(--text-primary);
+  box-shadow: 0 8px 28px rgba(0, 0, 0, 0.35);
+  font-size: 13px;
+}
+
+.cast-menu-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 2px 4px 4px;
+}
+
+.cast-menu-title {
+  font-weight: 600;
+}
+
+.cast-menu-refresh {
+  display: inline-flex;
+  padding: 4px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+}
+
+.cast-menu-refresh:hover:not(:disabled) {
+  background: var(--bg-hover, rgba(255, 255, 255, 0.08));
+}
+
+.cast-menu-refresh:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+.cast-spin {
+  animation: cast-spin 1s linear infinite;
+}
+
+@keyframes cast-spin {
+  to { transform: rotate(360deg); }
+}
+
+.cast-menu-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.cast-menu-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  width: 100%;
+  padding: 6px 8px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.cast-menu-item:hover,
+.cast-menu-item.is-active {
+  background: var(--bg-hover, rgba(255, 255, 255, 0.08));
+}
+
+.cast-menu-item.is-active {
+  color: var(--accent);
+}
+
+.cast-menu-item-text {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.cast-menu-item-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.cast-menu-item-meta {
+  font-size: 11px;
+  opacity: 0.6;
+}
+
+.cast-menu-note {
+  padding: 4px 8px;
+  font-size: 12px;
+  opacity: 0.75;
+}
+
+.cast-menu-error {
+  color: var(--danger, #e5484d);
+  opacity: 1;
+}
+
+.cast-menu-hint {
+  font-size: 11px;
+  opacity: 0.55;
+}
+
+.cast-menu-stop {
+  margin: 4px 0 0;
+  padding: 6px 8px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+}
+
+.cast-menu-stop:hover {
+  background: var(--bg-hover, rgba(255, 255, 255, 0.08));
+}

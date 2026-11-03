@@ -13,6 +13,7 @@ import { useShallow } from 'zustand/react/shallow';
 import { useAuthStore } from '@/store/authStore';
 import { useThemeStore } from '@/store/themeStore';
 import { Equalizer } from '@/features/equalizer';
+import { CastButton } from '@/features/cast';
 import { useTranslation } from 'react-i18next';
 import { usePlaybackLibraryNavigate } from '@/features/playback/hooks/usePlaybackLibraryNavigate';
 import { useRadioMetadata } from '@/features/radio';
@@ -258,6 +259,8 @@ export default function PlayerBar() {
         disableWaveformCanvas={perfFlags.disableWaveformCanvas}
         t={t}
       />
+
+      <CastButton />
 
       {utilityOverflow ? (
         <div className="player-overflow-wrap">

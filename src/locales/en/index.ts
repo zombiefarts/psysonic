@@ -34,6 +34,7 @@ import { queue } from './queue';
 import { miniPlayer } from './miniPlayer';
 import { statistics } from './statistics';
 import { player } from './player';
+import { cast } from './cast';
 import { nowPlayingInfo } from './nowPlayingInfo';
 import { songInfo } from './songInfo';
 import { playlists } from './playlists';
@@ -90,6 +91,7 @@ export const enTranslation = {
   miniPlayer,
   statistics,
   player,
+  cast,
   nowPlayingInfo,
   songInfo,
   playlists,

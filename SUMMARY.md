@@ -4,8 +4,9 @@ Branch: `feature/dlna-cast` (fork of Psysonic, not pushed, no PR opened).
 
 ## Status
 
-Steps 1-4 are done. Step 5 (Rust + React integration) has **not** been started. It is gated on your confirming
-the spike works on your Eversolo.
+Steps 1-4 are done and the spike works on your Eversolo. Step 5 (Rust + React integration) is implemented and
+passes the automated checks, but it has **not been run in the real app against the Eversolo** (see "Step 5: what to
+test").
 
 ## What changed
 
@@ -13,7 +14,17 @@ the spike works on your Eversolo.
   AVTransport/RenderingControl SOAP, DIDL-Lite with XML escaping).
 - `spike/dlna/README.md`: usage and the exact commands to run.
 - `README.md`: added a note that this is a fork based on Psysonic.
-- No changes to telemetry, privacy or license files. No app code touched.
+- Step 5, backend: `src-tauri/src/cast/` (`dlna.rs` + `mod.rs`) and eight Tauri commands: `list_renderers`,
+  `cast_play`, `cast_set_next`, `cast_pause`, `cast_stop`, `cast_seek`, `cast_set_volume`, `cast_status`
+  (additive; `src/generated/bindings.ts` regenerated, diff is 67 added lines, nothing existing changed). Adds
+  `socket2` (already in the lockfile) and tokio's `net` feature.
+- Step 5, frontend: `src/features/cast/` (store, `CastButton` device picker), `src/lib/api/cast.ts` (typed facade),
+  `src/app/castSession.ts` (session controller), `src/store/castGate.ts`, `src/locales/en/cast.ts`,
+  `src/styles/components/cast.css`. `CastButton` added to `PlayerBar` and the three fullscreen players.
+- Existing code touched: `playTrackAction.ts` (one line: `audio_play` now goes through `castGate`), `MainApp.tsx`
+  (imports the controller), `PlayerBar.tsx` and the fullscreen players (one button each), `locales/en/index.ts`,
+  `styles/components/index.css`, `lib.rs` (module + command registration), `Cargo.toml/lock`, `README.md`.
+- No changes to telemetry, privacy or license files.
 
 Verified here only against a local mock renderer (discover, play with an `&`/`<`/`>` title, status, volume, UPnP fault
 handling). It has **not** been run against real hardware.
@@ -105,12 +116,55 @@ Done already: discovery, WAV `play`, `seek`, `pause`, `resume`, `stop`, `get-vol
 4. Reboot the Eversolo and re-run `discover`: are the two description ports (1670/1748) stable, or do they change?
 5. Does one endpoint show up in the Eversolo's own UI as the active player when casting? Which one should the app use?
 
+## Step 5: how it works
+
+- **Rust is stateless.** `list_renderers` does SSDP from every local IPv4 interface (a single default-interface
+  search found nothing on this multi-adapter PC) and returns `CastRenderer` structs; the webview passes one back on
+  every command. Renderer control URLs must be http on a private/loopback/link-local IP, so a compromised webview
+  cannot use the commands as a generic HTTP client.
+- **The player stays the source of truth for queue and track.** `castSession.ts` wraps the player store's
+  `togglePlay/pause/resume/stop/seek/setVolume/playTrack` while a session is active, so the player bar, fullscreen
+  players, mini player, media keys and shortcuts all drive the renderer with no per-component changes. Advancing
+  still goes through the real `next()` (shuffle, repeat and infinite queue untouched), which ends in `playTrack`,
+  which the controller turns into a renderer load.
+- **Local engine stays silent.** `castGate` makes `playTrackAction` skip its `audio_play` while casting; starting a
+  session pauses the engine first.
+- **Polling:** `cast_status` once per second mirrors position, play state and volume into the player store and the
+  high-frequency progress channel. A track finishing is detected when the renderer leaves PLAYING for
+  STOPPED/NO_MEDIA_PRESENT within 4 s of the track's end, and not when the app itself paused or stopped it.
+  Six failed polls in a row end the session.
+- **Stream URL:** the plain server `stream.view` URL (never a `psysonic-local://` or cache URL), MIME from the track
+  suffix. Cover art URL is sent as `albumArtURI`.
+
+## Step 5: what to test
+
+Automated: Rust unit tests (19, builders/parsers/escaping/LAN guard), frontend tests (18: controller, end-of-track
+detection, picker). **Not done:** launching the app and casting to the Eversolo. Please try:
+
+1. `npm run tauri:dev`, play something, click the cast icon, pick `PLAY`. Does the current track continue on the
+   Eversolo at the same position, and does the PC go silent?
+2. Pause/resume, seek on the seekbar, volume slider, next/previous, clicking another track in a list.
+3. Let a track finish: does the next queue track start on the Eversolo? (This is the app-driven path.)
+4. Stop casting from the menu; then press play: does local playback resume sensibly? (Not verified; the engine may
+   need a cold reload of the current track.)
+5. Does the Eversolo pick the wrong one of its two endpoints? (`list_renderers` keeps the first location in sorted
+   order, as the spike does.)
+
 ## Known limitations (to document in the app)
+
+- Gapless via `SetNextAVTransportURI`: the backend command exists and the device accepts it, but the UI does not use
+  it yet. Every track change is a fresh `SetAVTransportURI` + `Play`, so expect a short gap.
+- Preloads (`audio_preload` / chain preload) still run for the next track while casting, wasting a little bandwidth.
+- Scrobbling and play statistics rely on local engine events and are probably not recorded for cast tracks.
+- Radio stations are not cast. Offline/local tracks are cast from the server, not from the local file.
+- AutoDJ, crossfade, loudness normalization and EQ do not apply to renderer playback (as intended).
+- Only English strings were added (`locales/en/cast.ts`); other locales fall back to English.
+- No UI to pick a specific endpoint when a device exposes two.
 
 - A renderer fetches the URL itself, so Subsonic auth must be embedded in the URL (`u/t/s`). Custom HTTP headers
   can't be sent by a renderer.
-- AutoDJ, crossfade, loudness normalization and EQ do not apply to renderer playback.
-- Queue advance uses `SetNextAVTransportURI` if supported, otherwise the app detects track end and advances itself.
+- Queue advance today is always app-driven (the app sees the renderer finish and moves on). Using
+  `SetNextAVTransportURI` when the renderer supports it is the intended upgrade; see the first bullet above.
 
 ## Open questions about Eversolo behaviour (undocumented, not guessed)
 
@@ -118,7 +172,8 @@ Done already: discovery, WAV `play`, `seek`, `pause`, `resume`, `stop`, `get-vol
   1670 gave coherent transport state in testing.
 - Are those ports stable across reboots, or dynamic per boot?
 - Which MIME types / `protocolInfo` does it need for FLAC, ALAC and high-res files? Does a wrong value break playback?
-- Does it support `SetNextAVTransportURI` (gapless)?
+- Does `SetNextAVTransportURI` actually give a gapless hand-off at end of track? (It is accepted and stored; the
+  actual transition was not observed.)
 - Does `Seek` with `REL_TIME` work on HTTP streams, and does it need range requests from the server?
 - Is the volume range 0-100, and does it use `Master` or a different channel?
 - Does it follow redirects and accept long URLs with query strings?

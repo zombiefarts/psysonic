@@ -21,6 +21,7 @@ import { ownedOverrideValue } from '@/lib/util/ownedEntityKey';
 import { FsLyricsMenu } from './FsLyricsMenu';
 import { FsPlayBtn } from './FsPlayBtn';
 import { FsVolume } from './FsVolume';
+import { CastButton } from '@/features/cast';
 import { useFsDynamicAccent } from '@/features/fullscreenPlayer/hooks/useFsDynamicAccent';
 import { useFsElementHeightVar } from '@/features/fullscreenPlayer/hooks/useFsElementHeightVar';
 import { useFsIdleFade } from '@/features/fullscreenPlayer/hooks/useFsIdleFade';
@@ -306,6 +307,7 @@ export default function FullscreenPlayer({ onClose }: FullscreenPlayerProps) {
               <MicVocal size={14} />
             </button>
           </div>
+          <CastButton className="fs-btn fs-btn-sm" iconSize={14} />
           <FsVolume
             className="fs-volume"
             buttonClassName="fs-btn fs-btn-sm"
