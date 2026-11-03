@@ -169,30 +169,75 @@ class UpnpFault(Exception):
 # Network
 # --------------------------------------------------------------------------
 
-def ssdp_search(timeout: float, bind_ip: str | None) -> list[str]:
-    """Return unique LOCATION urls of MediaRenderers."""
-    sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM, socket.IPPROTO_UDP)
-    sock.setsockopt(socket.IPPROTO_IP, socket.IP_MULTICAST_TTL, 2)
-    if bind_ip:
-        sock.bind((bind_ip, 0))
-        sock.setsockopt(socket.IPPROTO_IP, socket.IP_MULTICAST_IF, socket.inet_aton(bind_ip))
-    sock.settimeout(0.5)
-    msg = build_msearch()
-    for _ in range(2):
-        sock.sendto(msg, SSDP_ADDR)
+SEARCH_TARGETS = (MEDIA_RENDERER, "upnp:rootdevice", "ssdp:all", AVT)
+
+
+def local_ipv4s() -> list[str]:
+    """Best-effort list of this machine's IPv4 addresses (skips loopback/link-local)."""
+    ips: set[str] = set()
+    try:
+        for info in socket.getaddrinfo(socket.gethostname(), None, socket.AF_INET):
+            ips.add(info[4][0])
+    except OSError:
+        pass
+    try:
+        s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        s.connect(("239.255.255.250", 1900))  # no packet sent; picks the default-route NIC
+        ips.add(s.getsockname()[0])
+        s.close()
+    except OSError:
+        pass
+    return sorted(i for i in ips if not i.startswith(("127.", "169.254.")))
+
+
+def ssdp_search(timeout: float, bind_ip: str | None, unicast_ip: str | None = None) -> list[str]:
+    """Return unique LOCATION urls of UPnP devices (any search target; filtered later).
+
+    Sends from every local IPv4 address (or just `bind_ip`) so multi-NIC Windows machines
+    do not lose the packet on the wrong adapter. With `unicast_ip` it also queries that
+    device directly on UDP 1900.
+    """
+    sources = [bind_ip] if bind_ip else (local_ipv4s() or [None])
+    socks = []
+    for src in sources:
+        try:
+            sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM, socket.IPPROTO_UDP)
+            sock.setsockopt(socket.IPPROTO_IP, socket.IP_MULTICAST_TTL, 2)
+            if src:
+                sock.bind((src, 0))
+                sock.setsockopt(socket.IPPROTO_IP, socket.IP_MULTICAST_IF, socket.inet_aton(src))
+            sock.settimeout(0.2)
+            socks.append((src, sock))
+            print(f"[ssdp] sending from {src or 'default interface'}", file=sys.stderr) if _verbose else None
+        except OSError as e:
+            vlog("could not use source", src, e)
+    if not socks:
+        raise SystemExit("Could not open any UDP socket for SSDP.")
+    for src, sock in socks:
+        for st in SEARCH_TARGETS:
+            msg = build_msearch(st)
+            for _ in range(2):
+                try:
+                    sock.sendto(msg, SSDP_ADDR)
+                    if unicast_ip:
+                        sock.sendto(msg, (unicast_ip, 1900))
+                except OSError as e:
+                    vlog("send failed from", src, e)
     seen: dict[str, str] = {}
     end = time.time() + timeout
     while time.time() < end:
-        try:
-            data, addr = sock.recvfrom(65507)
-        except socket.timeout:
-            continue
-        h = parse_ssdp_response(data)
-        loc = h.get("location")
-        vlog("SSDP reply from", addr, h)
-        if loc and loc not in seen:
-            seen[loc] = addr[0]
-    sock.close()
+        for _, sock in socks:
+            try:
+                data, addr = sock.recvfrom(65507)
+            except (socket.timeout, OSError):
+                continue
+            h = parse_ssdp_response(data)
+            loc = h.get("location")
+            vlog("SSDP reply from", addr, {k: h.get(k) for k in ("st", "usn", "server", "location")})
+            if loc and loc not in seen:
+                seen[loc] = addr[0]
+    for _, sock in socks:
+        sock.close()
     return list(seen)
 
 
@@ -259,10 +304,11 @@ def find_devices(args) -> list[dict]:
         return [describe(args.location)]
     if args.ip:
         # Eversolo UPnP description port varies by firmware; fall back to SSDP filtered by IP.
-        locs = [l for l in ssdp_search(args.timeout, args.bind) if args.ip in l]
+        locs = [l for l in ssdp_search(args.timeout, args.bind, args.ip) if args.ip in l]
         if not locs:
-            raise SystemExit(f"No MediaRenderer answered SSDP from {args.ip}. "
-                             "Try `discover`, or pass --location with the description URL.")
+            raise SystemExit(f"No UPnP device at {args.ip} answered SSDP. "
+                             "Check the IP, that the device is awake, and try `-v`; "
+                             "or pass --location with the description URL.")
     else:
         locs = ssdp_search(args.timeout, args.bind)
     devs = []
@@ -275,7 +321,13 @@ def find_devices(args) -> list[dict]:
 
 
 def pick_device(args) -> dict:
-    devs = [d for d in find_devices(args) if d["avTransport"]]
+    devs = []
+    seen_udn: set[str] = set()
+    for d in find_devices(args):
+        # Some renderers (Eversolo) advertise the same UDN on several, changing ports.
+        if d["avTransport"] and (not d["udn"] or d["udn"] not in seen_udn):
+            seen_udn.add(d["udn"])
+            devs.append(d)
     if not devs:
         raise SystemExit("No renderer with an AVTransport service found. Run `discover -v`.")
     if args.name:

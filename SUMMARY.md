@@ -42,6 +42,23 @@ handling). It has **not** been run against real hardware.
     `left: "2020-12-31"` vs `right: "2021-01-01"`, which looks like a local-timezone vs UTC day-boundary
     assumption. Pre-existing on this machine, unrelated to casting.
 
+## Spike findings so far (real network, read-only)
+
+Run from this PC (192.168.1.164) after fixing discovery:
+
+- The first `discover` found nothing: it sent one `MediaRenderer` M-SEARCH from the default adapter only. The spike now
+  sends from every local IPv4 address and tries several search targets (`MediaRenderer:1`, `upnp:rootdevice`,
+  `ssdp:all`, `AVTransport:1`); that found the device.
+- The Eversolo is at `192.168.1.247`, friendly name **`PLAY`**, manufacturer string "EVERSOLO", model "AV Renderer
+  Device", server header `UPnP/1.0 DLNADOC/1.50 Platinum/1.0.5.13`. It has AVTransport and RenderingControl.
+- **Its description/control port changes between runs** (seen 1748 and 1670, same UDN). Do not cache the URL; the app
+  must rediscover via SSDP (or re-resolve) and handle a stale port.
+- Read-only calls work: `GetTransportInfo` -> `STOPPED/OK`, `GetPositionInfo`, `GetMediaInfo` (`NextURI` field
+  present, empty), `GetVolume` -> 67, `GetMute` -> 0. Volume uses the `Master` channel.
+- **Not yet tested** (needs a stream URL and makes sound): `play`, `seek`, `pause`, `stop`, `set-volume`, `next`.
+- The network also has Sonos (Ray, Sub Mini, 2x Era 100), a Yamaha RX-A4A and an NVIDIA SHIELD. The spike lists them
+  but only the Eversolo was queried.
+
 ## How to run the spike
 
 See `spike/dlna/README.md`. Short version, from the repo root on a machine on the Eversolo's LAN:
