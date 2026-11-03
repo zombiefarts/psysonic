@@ -322,12 +322,20 @@ def find_devices(args) -> list[dict]:
 
 def pick_device(args) -> dict:
     devs = []
-    seen_udn: set[str] = set()
-    for d in find_devices(args):
-        # Some renderers (Eversolo) advertise the same UDN on several, changing ports.
-        if d["avTransport"] and (not d["udn"] or d["udn"] not in seen_udn):
-            seen_udn.add(d["udn"])
+    by_udn: dict[str, list[str]] = {}
+    # Eversolo advertises the SAME UDN on two description ports (e.g. 1670 and 1748) and the
+    # SSDP reply order varies, so sort for a deterministic pick. In testing, status/position were
+    # only coherent on one of them; use --location to pin an endpoint explicitly.
+    for d in sorted(find_devices(args), key=lambda x: x["location"]):
+        if not d["avTransport"]:
+            continue
+        by_udn.setdefault(d["udn"], []).append(d["location"])
+        if len(by_udn[d["udn"]]) == 1 or not d["udn"]:
             devs.append(d)
+    for udn, locs in by_udn.items():
+        if udn and len(locs) > 1:
+            print(f"Note: {udn} has {len(locs)} endpoints {locs}; using {locs[0]}. "
+                  "Use --location to pick another.", file=sys.stderr)
     if not devs:
         raise SystemExit("No renderer with an AVTransport service found. Run `discover -v`.")
     if args.name:
