@@ -136,6 +136,22 @@ Done already: discovery, WAV `play`, `seek`, `pause`, `resume`, `stop`, `get-vol
 - **Stream URL:** the plain server `stream.view` URL (never a `psysonic-local://` or cache URL), MIME from the track
   suffix. Cover art URL is sent as `albumArtURI`.
 
+## Step 5: verification run
+
+After the changes (same machine as the baseline above):
+
+- `cargo clippy -p psysonic --all-targets -- -D warnings`: clean.
+- `cargo test --workspace --all-targets --no-fail-fast`: the same 6 pre-existing `psysonic-library`
+  `repos::play_session` failures as the baseline and nothing else. The new cast tests and the bindings freshness /
+  "every command is collected" guards pass.
+- `npx vitest run` (via `npm test`): 6549 passed. Two Prism fullscreen tests assert the exact keyboard tab order
+  and had to be updated for the new cast button (it sits between Repeat/Force scrobble and Mute). The baseline
+  `Login.test.tsx` timeout did not recur.
+- `npx tsc --noEmit`, `npm run lint`, `npm run dep:check` (no new violations, no cycles), `check:css-imports`,
+  `dep:check:barrels`: all clean.
+- Not run: `npm run tauri:dev` / `tauri:build`, and the node script tests `npm test` chains after vitest (the
+  chain stopped at the first vitest failure before the Prism fix).
+
 ## Step 5: what to test
 
 Automated: Rust unit tests (19, builders/parsers/escaping/LAN guard), frontend tests (18: controller, end-of-track
