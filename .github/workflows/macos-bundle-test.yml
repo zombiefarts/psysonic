@@ -96,6 +96,21 @@ jobs:
             exit 1
           fi
           echo "icon matches the repo"
+      # --no-sign leaves only the linker's ad-hoc signature, whose identifier is
+      # a hash (e.g. psysonic-b64d...), not dev.psysonic.player. macOS keys the
+      # Local Network permission on that identifier, so an approved LAN grant
+      # never matched and every connection to a LAN server failed with "No
+      # route to host". Re-sign ad-hoc with the bundle id + entitlements.
+      - name: ad-hoc sign app bundle
+        env:
+          TARGET: ${{ inputs.target }}
+        run: |
+          set -euo pipefail
+          APP="src-tauri/target/${TARGET}/release/bundle/macos/Psysonic.app"
+          codesign --force --deep --sign - --identifier dev.psysonic.player \
+            --entitlements src-tauri/Entitlements.plist "$APP"
+          codesign --verify --deep --strict "$APP"
+          codesign -dv "$APP" 2>&1 | grep -E '^(Identifier|CodeDirectory)'
       - name: show bundle output on failure
         if: failure()
         env:
