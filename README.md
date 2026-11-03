@@ -315,6 +315,8 @@ Psysonic is licensed under the **GNU GPL v3.0**.
 
 ## Forks and Attribution
 
+> **This repository is a fork based on [Psysonic](https://github.com/Psysonic/psysonic).** The `feature/dlna-cast` branch experiments with DLNA/UPnP casting. All original work is by the Psysonic authors and remains under the GPLv3; see [LICENSE](LICENSE) and [NOTICE.md](NOTICE.md).
+
 Psysonic is free and open-source software under the GPLv3. You are welcome to fork it, modify it and build upon it under the terms of the license.
 
 If you publish a modified or rebranded version, please make it clear that your project is based on Psysonic and preserve proper attribution to the original project.
