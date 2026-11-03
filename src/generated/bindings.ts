@@ -617,6 +617,34 @@ export const commands = {
 	 *  design: a transient DNS hiccup shouldn't block save).
 	 */
 	resolveHostAddresses: (hostname: string) => typedError<string[], string>(__TAURI_INVOKE("resolve_host_addresses", { hostname })),
+	/**  Find UPnP MediaRenderers on the local network (SSDP). One entry per device. */
+	listRenderers: (timeoutMs: number | null) => typedError<CastRenderer[], string>(__TAURI_INVOKE("list_renderers", { timeoutMs })),
+	/**
+	 *  Start `track` on the renderer, optionally resuming at `start_seconds`. With no
+	 *  `track` this resumes whatever is loaded (a plain AVTransport `Play`).
+	 */
+	castPlay: (renderer: CastRenderer, track: {
+	url: string,
+	title: string,
+	artist: string | null,
+	album: string | null,
+	artUrl: string | null,
+	/**  File suffix or MIME type; used for the DIDL-Lite `protocolInfo`. */
+	mime: string | null,
+} | null, startSeconds: number | null) => typedError<null, string>(__TAURI_INVOKE("cast_play", { renderer, track, startSeconds })),
+	/**
+	 *  Queue the next track so a renderer that supports it can advance gaplessly.
+	 *  Errors when the renderer rejects `SetNextAVTransportURI`; callers then fall back
+	 *  to advancing themselves when the current track ends.
+	 */
+	castSetNext: (renderer: CastRenderer, track: CastTrack) => typedError<null, string>(__TAURI_INVOKE("cast_set_next", { renderer, track })),
+	castPause: (renderer: CastRenderer) => typedError<null, string>(__TAURI_INVOKE("cast_pause", { renderer })),
+	castStop: (renderer: CastRenderer) => typedError<null, string>(__TAURI_INVOKE("cast_stop", { renderer })),
+	castSeek: (renderer: CastRenderer, seconds: number | null) => typedError<null, string>(__TAURI_INVOKE("cast_seek", { renderer, seconds })),
+	/**  Volume 0-100 on the renderer's `Master` channel. */
+	castSetVolume: (renderer: CastRenderer, volume: number) => typedError<null, string>(__TAURI_INVOKE("cast_set_volume", { renderer, volume })),
+	/**  Transport state, position, duration and volume. Meant to be polled about once a second. */
+	castStatus: (renderer: CastRenderer) => typedError<CastStatus, string>(__TAURI_INVOKE("cast_status", { renderer })),
 	/**
 	 *  Header-aware connect probe. Runs the Subsonic `ping` over the native
 	 *  reqwest stack instead of the WebView so that per-server custom headers
@@ -1297,6 +1325,45 @@ export type BurnWriteCapabilities = {
 	bufferUnderrunFree: boolean,
 	/**  Largest cue sheet the drive will accept, in bytes. */
 	maxCueSheetBytes: number,
+};
+
+/**
+ *  A renderer as seen on the LAN. Handed back to the frontend and passed in again
+ *  on every call, so the Rust side keeps no per-device state.
+ */
+export type CastRenderer = {
+	/**  Device UDN. Stable id for the UI; one device can answer on several ports. */
+	id: string,
+	name: string,
+	manufacturer: string,
+	model: string,
+	location: string,
+	avControlUrl: string,
+	avServiceType: string,
+	rcControlUrl: string | null,
+	rcServiceType: string | null,
+};
+
+export type CastStatus = {
+	/**  Raw UPnP transport state: PLAYING, PAUSED_PLAYBACK, STOPPED, TRANSITIONING, NO_MEDIA_PRESENT. */
+	state: string,
+	/**  Only set while PLAYING or PAUSED_PLAYBACK; other states report stale positions. */
+	positionSecs: number | null,
+	durationSecs: number | null,
+	trackUri: string,
+	/**  0-100, when the renderer exposes RenderingControl. */
+	volume: number | null,
+	muted: boolean | null,
+};
+
+export type CastTrack = {
+	url: string,
+	title: string,
+	artist: string | null,
+	album: string | null,
+	artUrl: string | null,
+	/**  File suffix or MIME type; used for the DIDL-Lite `protocolInfo`. */
+	mime: string | null,
 };
 
 /**  Min/max `year` from indexed tracks for a server (Albums year filter UI). */

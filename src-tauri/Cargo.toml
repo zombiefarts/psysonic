@@ -62,7 +62,8 @@ symphonia = { version = "=0.6.1", default-features = false, features = ["flac", 
 reqwest = { version = "0.13", default-features = false, features = ["stream", "json", "multipart", "query", "form", "rustls", "blocking", "gzip", "brotli"] }
 futures-util = "0.3"
 md5 = "0.8"
-tokio = { version = "1", features = ["rt", "time", "sync"] }
+tokio = { version = "1", features = ["rt", "time", "sync", "net"] }
+socket2 = "0.6"
 biquad = "0.6"
 ringbuf = "0.5"
 tauri-plugin-window-state = "2.4.1"

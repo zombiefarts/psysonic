@@ -3,6 +3,7 @@
 
 mod benchmark;
 mod canonical_migration;
+mod cast;
 pub mod cli;
 mod cover_cache;
 pub(crate) mod desktop_palette;
@@ -333,6 +334,14 @@ fn specta_builder() -> tauri_specta::Builder<tauri::Wry> {
             crate::lib_commands::app_api::migration::migration_inspect,
             crate::lib_commands::app_api::migration::migration_run,
             crate::lib_commands::app_api::network::resolve_host_addresses,
+            crate::cast::list_renderers,
+            crate::cast::cast_play,
+            crate::cast::cast_set_next,
+            crate::cast::cast_pause,
+            crate::cast::cast_stop,
+            crate::cast::cast_seek,
+            crate::cast::cast_set_volume,
+            crate::cast::cast_status,
             crate::lib_commands::app_api::network::probe_server_connection,
             crate::lib_commands::app_api::network::subsonic_proxy_request,
             crate::lib_commands::app_api::network::server_http_context_clear,
@@ -593,6 +602,14 @@ pub fn run() {
             migration_inspect,
             migration_run,
             resolve_host_addresses,
+            cast::list_renderers,
+            cast::cast_play,
+            cast::cast_set_next,
+            cast::cast_pause,
+            cast::cast_stop,
+            cast::cast_seek,
+            cast::cast_set_volume,
+            cast::cast_status,
             probe_server_connection,
             subsonic_proxy_request,
             server_http_context_sync,

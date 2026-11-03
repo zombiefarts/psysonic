@@ -4385,6 +4385,7 @@ dependencies = [
  "rusqlite",
  "serde",
  "serde_json",
+ "socket2 0.6.5",
  "souvlaki",
  "specta",
  "specta-typescript",
