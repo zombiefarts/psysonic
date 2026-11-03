@@ -7,6 +7,7 @@ import {
   playbackReportStopped,
 } from '@/features/playback/store/playbackReportSession';
 import { resolveQueueTrack } from '@/features/playback/store/queueTrackView';
+import { isCastGateActive } from '@/store/castGate';
 import { audioPreload, audioSetAutodjSuppress } from '@/lib/api/audio';
 import { setDeferHotCachePrefetch } from '@/lib/cache/hotCacheGate';
 import { notifyLibraryPlaybackHint } from '@/features/playback/store/libraryPlaybackHint';
@@ -269,6 +270,8 @@ export function handleAudioProgress(
   buffering = false,
 ): void {
   bumpPerfCounter('audioProgressEvents');
+  // The renderer owns the position while casting; local engine ticks would fight it.
+  if (isCastGateActive()) return;
   const perfFlags = getPerfProbeFlags();
   const progressUiDisabled = perfFlags.disablePlayerProgressUi;
   // While a seek is pending, the store already holds the optimistic target
@@ -600,6 +603,7 @@ export function handleAudioProgress(
 }
 
 export function handleAudioEnded(): void {
+  if (isCastGateActive()) return;
   notifyLibraryPlaybackHint('idle');
 
   if (Date.now() - getLastGaplessSwitchTime() < 600) {
