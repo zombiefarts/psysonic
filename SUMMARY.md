@@ -28,10 +28,19 @@ handling). It has **not** been run against real hardware.
 
 - Toolchain installed this session: GitHub CLI 2.103.3, Rust 1.99.1 (meets 1.98+), Node 24.15, Python 3.14.
 - `npm install`: succeeded.
-- `cargo build` (debug) of the unmodified fork: **fails** before any change. The `opusic-sys` build script needs
-  `cmake`, which is not installed on this machine (`program not found`). Fix: install CMake and re-run. Not a
-  fork problem.
-- `npm run tauri:dev` / `tauri:build` has not been run, and the existing test suites have not been run yet.
+- `cargo build` (debug) of the unmodified fork: **succeeds** once CMake 4.4.4 is installed and `CMAKE` points at it
+  (`C:\Program Files\CMake\bin\cmake.exe`). A plain `cargo build` in a fresh shell still failed with "cmake program
+  not found" even though `cmake` was on PATH; setting `CMAKE` explicitly fixed it. Cause not diagnosed.
+- Note: `cargo build -p <single crate>` fails on missing `specta` features (feature unification); build the whole
+  workspace instead.
+- `npm run tauri:dev` / `tauri:build` has not been run.
+- Baseline tests (no changes of mine in the tree):
+  - `npx vitest run`: 6532 passed, 1 failed (`Login.test.tsx` timed out at 5s while `cargo test` ran in parallel;
+    passes alone, 4/4).
+  - `cargo test --workspace --all-targets --no-fail-fast`: everything passes except **6 failures in
+    `psysonic-library` `repos::play_session`** (`insert_completion` x4, `summaries` x2). One shows
+    `left: "2020-12-31"` vs `right: "2021-01-01"`, which looks like a local-timezone vs UTC day-boundary
+    assumption. Pre-existing on this machine, unrelated to casting.
 
 ## How to run the spike
 
