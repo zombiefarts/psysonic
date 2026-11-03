@@ -36,6 +36,10 @@ const POLL_MS = 1000;
 const END_TOLERANCE_SECS = 4;
 /** After sending a track, the renderer reports stale/STOPPED states while it loads. */
 const LOAD_GRACE_MS = 8000;
+/** A reported position further than this from the local clock is a real jump (seek, new track). */
+const POSITION_SNAP_SECS = 2.5;
+/** After a seek or load, reports far from the target are treated as stale for this long. */
+const SEEK_HOLD_MS = 4000;
 const MAX_POLL_FAILURES = 6;
 /** Ignore the renderer's volume right after the user touched ours, or the slider jumps back. */
 const VOLUME_ECHO_GUARD_MS = 2500;
@@ -107,6 +111,8 @@ let idleExpected = false;
 let generation = 0;
 let loadGraceUntil = 0;
 let lastLive: { position: number; duration: number | null } | null = null;
+let anchor: { position: number; at: number; playing: boolean } | null = null;
+let seekHoldUntil = 0;
 let endHandled = false;
 let lastLocalVolumeAt = 0;
 let volumeTimer: ReturnType<typeof setTimeout> | null = null;
@@ -151,6 +157,8 @@ async function loadCurrentTrack(startSecs: number): Promise<void> {
   endHandled = false;
   lastLive = null;
   loadGraceUntil = Date.now() + LOAD_GRACE_MS;
+  anchor = { position: startSecs, at: Date.now(), playing: false };
+  seekHoldUntil = startSecs >= 1 ? Date.now() + SEEK_HOLD_MS : 0;
   setPlaying(true);
   publishPosition(startSecs, currentDuration(), true);
   try {
@@ -163,12 +171,40 @@ async function loadCurrentTrack(startSecs: number): Promise<void> {
   }
 }
 
+/**
+ * Renderers report position coarsely and sometimes stale (right after a seek or a
+ * track change). Keep a local clock anchored to the last accepted report and only
+ * re-anchor when the report is plausibly the same timeline, so the playhead does not
+ * jump back and forth with every poll.
+ */
+function smoothPosition(reported: number, playing: boolean): number {
+  const now = Date.now();
+  const predicted = anchor ? anchor.position + (anchor.playing ? (now - anchor.at) / 1000 : 0) : reported;
+  const drift = Math.abs(reported - predicted);
+  const held = now < seekHoldUntil;
+  if (anchor && held && drift > POSITION_SNAP_SECS) {
+    // Stale report from before the seek/load took effect; keep the local clock.
+    anchor = { position: predicted, at: now, playing };
+    return predicted;
+  }
+  if (!anchor || drift > POSITION_SNAP_SECS) {
+    anchor = { position: reported, at: now, playing };
+    return reported;
+  }
+  // Same timeline: follow the clock, nudging toward the report.
+  const next = predicted + (reported - predicted) * 0.3;
+  anchor = { position: next, at: now, playing };
+  return next;
+}
+
 function mirrorStatus(st: CastStatus): void {
   const duration = currentDuration(st);
   const loading = Date.now() < loadGraceUntil;
   if ((st.state === 'PLAYING' || st.state === 'PAUSED_PLAYBACK') && st.positionSecs != null) {
     lastLive = { position: st.positionSecs, duration };
-    publishPosition(st.positionSecs, duration);
+    publishPosition(smoothPosition(st.positionSecs, st.state === 'PLAYING'), duration);
+  } else if (anchor && st.state === 'TRANSITIONING') {
+    anchor = { position: anchor.position, at: Date.now(), playing: false };
   }
   // TRANSITIONING is the renderer buffering, which reads as "playing" to the user.
   const playing = st.state === 'PLAYING' || (st.state === 'TRANSITIONING' && !idleExpected);
@@ -270,6 +306,8 @@ async function endSession(reason?: string): Promise<void> {
   const s = session();
   if (!s) return;
   generation += 1;
+  anchor = null;
+  seekHoldUntil = 0;
   if (timer) clearInterval(timer);
   timer = null;
   if (volumeTimer) clearTimeout(volumeTimer);
@@ -350,6 +388,8 @@ function installWrappers(): void {
       if (!duration) return;
       const seconds = Math.max(0, Math.min(progress * duration, duration - 0.25));
       publishPosition(seconds, duration);
+      anchor = { position: seconds, at: Date.now(), playing: usePlayerStore.getState().isPlaying };
+      seekHoldUntil = Date.now() + SEEK_HOLD_MS;
       emitPlaybackSeek(seconds);
       void castSeek(sess.renderer, seconds).catch(e => useCastStore.getState().patchSession({ error: errorMessage(e) }));
     },

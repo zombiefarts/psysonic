@@ -164,14 +164,29 @@ describe('cast session controller', () => {
   it('mirrors renderer position and play state into the player store while polling', async () => {
     vi.mocked(castApi.castStatus).mockResolvedValue(status({ state: 'PLAYING', positionSecs: 25, volume: 55 }));
     await getCastController()!.start(renderer);
-    await vi.advanceTimersByTimeAsync(1100);
+    await vi.advanceTimersByTimeAsync(5000); // past the post-load stale-report hold
 
     const s = usePlayerStore.getState();
-    expect(s.currentTime).toBe(25);
-    expect(s.progress).toBeCloseTo(25 / 180);
+    // The mock keeps reporting 25, so the local clock is nudged back toward it each poll.
+    expect(s.currentTime).toBeGreaterThanOrEqual(25);
+    expect(s.currentTime).toBeLessThan(28);
     expect(s.isPlaying).toBe(true);
     expect(s.volume).toBeCloseTo(0.55);
     expect(useCastStore.getState().session?.status?.state).toBe('PLAYING');
+  });
+
+  it('ignores a stale renderer position right after a seek instead of jumping back', async () => {
+    vi.mocked(castApi.castStatus).mockResolvedValue(status({ state: 'PLAYING', positionSecs: 10 }));
+    await getCastController()!.start(renderer);
+    await vi.advanceTimersByTimeAsync(5000);
+    usePlayerStore.getState().seek(0.5); // 90s; the renderer keeps reporting ~10s for a moment
+    await vi.advanceTimersByTimeAsync(1100);
+    expect(usePlayerStore.getState().currentTime).toBeGreaterThanOrEqual(90);
+
+    vi.mocked(castApi.castStatus).mockResolvedValue(status({ state: 'PLAYING', positionSecs: 92 }));
+    await vi.advanceTimersByTimeAsync(1100);
+    expect(usePlayerStore.getState().currentTime).toBeGreaterThanOrEqual(90);
+    expect(usePlayerStore.getState().currentTime).toBeLessThan(95);
   });
 
   it('advances the queue when the renderer finishes a track', async () => {
