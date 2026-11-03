@@ -13,7 +13,9 @@ import {
 } from '@/lib/api/library';
 import {
   bootstrapAllIndexedServers,
+  bindIndexedServer,
   bootstrapIndexedServer,
+  lastBindErrorFor,
   type BindServerResult,
 } from '@/lib/library/librarySession';
 import {
@@ -351,12 +353,28 @@ export function useLibraryIndexSync() {
               ? 'delta'
               : 'full';
       ingestCountRef.current[key] = 0;
-      await enqueueLibrarySync({ serverId: key, kind });
+      try {
+        await enqueueLibrarySync({ serverId: key, kind });
+      } catch (e) {
+        // The Rust session lives in process memory and is only bound at startup /
+        // server changes. If that bind failed (or never ran), rebind now and retry
+        // once instead of surfacing the opaque "no bound session" error.
+        const message = e instanceof Error ? e.message : String(e);
+        if (!message.includes('no bound session')) throw e;
+        const profile = servers.find(s => serverIndexKeyForProfile(s) === key)
+          ?? servers.find(s => s.id === serverId);
+        if (!profile) throw e;
+        const bound = await bindIndexedServer(profile);
+        if (bound !== 'bound') {
+          throw new Error(`could not connect to the server (${lastBindErrorFor(key) ?? bound})`);
+        }
+        await enqueueLibrarySync({ serverId: key, kind });
+      }
     } catch (e) {
       setBusyServerId(null);
       showToast(t('settings.libraryIndexSyncError', { error: e instanceof Error ? e.message : String(e) }), 5000, 'error');
     }
-  }, [statusByServer, t]);
+  }, [servers, statusByServer, t]);
 
   const handleCancel = useCallback(async (serverId: string) => {
     clearPendingLibrarySync(resolveIndexKey(serverId));

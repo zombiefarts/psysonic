@@ -31,6 +31,12 @@ interface BindFlight {
 }
 
 const bindInFlightByIndexKey = new Map<string, BindFlight>();
+/** Last bind failure reason per index key, so callers can surface it instead of a bare 'error'. */
+const lastBindErrorByIndexKey = new Map<string, string>();
+
+export function lastBindErrorFor(serverIndexKey: string): string | null {
+  return lastBindErrorByIndexKey.get(serverIndexKey) ?? null;
+}
 
 function bindProfileFingerprint(server: ServerProfile): string {
   return JSON.stringify([
@@ -76,7 +82,11 @@ async function bindIndexedServerOnce(
   server: ServerProfile,
   serverIndexKey: string,
 ): Promise<BindServerResult> {
-  if (!useLibraryIndexStore.getState().isIndexEnabled(server.id)) return 'error';
+  lastBindErrorByIndexKey.delete(serverIndexKey);
+  if (!useLibraryIndexStore.getState().isIndexEnabled(server.id)) {
+    lastBindErrorByIndexKey.set(serverIndexKey, 'library indexing is disabled for this server');
+    return 'error';
+  }
 
   // Register per-server gate headers in the native registry FIRST — before the
   // reachability probe, the bind session, and any stream / cover / prefetch
@@ -97,8 +107,14 @@ async function bindIndexedServerOnce(
   // endpoint instead of the literal primary URL. Single-address profiles fall
   // through to one ping, identical to the legacy path.
   const probe = await ensureConnectUrlResolved(server);
-  if (!probe.ok) return 'offline';
-  if (!currentProfileMatches(server, serverIndexKey)) return 'error';
+  if (!probe.ok) {
+    lastBindErrorByIndexKey.set(serverIndexKey, 'server is unreachable');
+    return 'offline';
+  }
+  if (!currentProfileMatches(server, serverIndexKey)) {
+    lastBindErrorByIndexKey.set(serverIndexKey, 'server profile changed during connect');
+    return 'error';
+  }
   const baseUrl = probe.baseUrl;
 
   try {
@@ -125,7 +141,10 @@ async function bindIndexedServerOnce(
       logLibraryStatus(serverIndexKey, status, 'bind_session');
     }
     return 'bound';
-  } catch {
+  } catch (e) {
+    const reason = e instanceof Error ? e.message : String(e);
+    lastBindErrorByIndexKey.set(serverIndexKey, reason);
+    console.warn(`[library] bind session failed for ${serverIndexKey}: ${reason}`);
     return 'error';
   }
 }
@@ -273,5 +292,6 @@ export async function resumeInitialSyncIfIncomplete(serverIndexKey: string): Pro
 
 export function resetLibrarySessionForTests(): void {
   bindInFlightByIndexKey.clear();
+  lastBindErrorByIndexKey.clear();
   resumeInFlight.clear();
 }
